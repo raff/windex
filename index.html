@@ -87,6 +87,10 @@
       display: none;
     }
 
+    body.view-mode .widget-version {
+      display: none;
+    }
+
     body.view-mode .grid::before {
       opacity: 0;
     }
@@ -208,6 +212,16 @@
       font-family: "Work Sans", "Helvetica Neue", sans-serif;
       font-size: 14px;
       overflow: auto;
+    }
+
+    .field-label {
+      display: block;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      margin: 12px 0 6px;
+      opacity: 0.7;
     }
 
     .widget-table {
@@ -373,8 +387,11 @@
   <div class="overlay" id="overlay">
     <div class="panel">
       <h3 id="panelHeading">Add a widget</h3>
+      <label class="field-label" for="widgetTitle">Title</label>
       <input id="widgetTitle" placeholder="Widget title" />
+      <label class="field-label" for="widgetHtml">Body</label>
       <textarea id="widgetHtml" placeholder="Widget HTML"></textarea>
+      <label class="field-label" for="widgetScript">Script</label>
       <textarea id="widgetScript" placeholder="Widget script (optional)"></textarea>
       <div class="hint">Tip: You can include &lt;script&gt; tags in HTML, but using the Script field is cleaner.</div>
       <div class="controls">
@@ -481,6 +498,7 @@
     let gridRows = DEFAULT_GRID_ROWS;
     let headHtml = "";
     let headHtmlUnsafe = false;
+    let headReady = Promise.resolve();
 
     function setGridSize(cols, rows) {
       gridCols = cols;
@@ -737,29 +755,55 @@
     }
 
     function applyHeadHtml(nextHeadHtml, options = {}) {
-      const { sanitize = true, unsafe = false } = options;
-      document.querySelectorAll("[data-windex-head]").forEach((node) => node.remove());
-      let nextHtml = typeof nextHeadHtml === "string" ? nextHeadHtml.trim() : "";
-      if (sanitize) {
-        const sanitized = sanitizeHeadHtml(nextHtml);
-        if (sanitized.issues.length) {
-          console.warn("Head HTML sanitized:", sanitized.issues);
+      headReady = (async () => {
+        const { sanitize = true, unsafe = false } = options;
+        document.querySelectorAll("[data-windex-head]").forEach((node) => node.remove());
+        let nextHtml = typeof nextHeadHtml === "string" ? nextHeadHtml.trim() : "";
+        if (sanitize) {
+          const sanitized = sanitizeHeadHtml(nextHtml);
+          if (sanitized.issues.length) {
+            console.warn("Head HTML sanitized:", sanitized.issues);
+          }
+          nextHtml = sanitized.html;
+          headHtmlUnsafe = false;
+        } else {
+          headHtmlUnsafe = unsafe;
         }
-        nextHtml = sanitized.html;
-        headHtmlUnsafe = false;
-      } else {
-        headHtmlUnsafe = unsafe;
-      }
-      headHtml = nextHtml;
-      if (!headHtml) return;
-      const template = document.createElement("template");
-      template.innerHTML = headHtml;
-      Array.from(template.content.childNodes).forEach((node) => {
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
-        const el = node;
-        el.setAttribute("data-windex-head", "1");
-        document.head.appendChild(el);
-      });
+        headHtml = nextHtml;
+        if (!headHtml) return;
+        const template = document.createElement("template");
+        template.innerHTML = headHtml;
+        const scriptLoads = [];
+        Array.from(template.content.childNodes).forEach((node) => {
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+          let el = node;
+          if (el.tagName === "SCRIPT") {
+            const scriptEl = document.createElement("script");
+            Array.from(el.attributes).forEach((attr) => {
+              scriptEl.setAttribute(attr.name, attr.value);
+            });
+            if (!scriptEl.hasAttribute("async") && !scriptEl.hasAttribute("defer")) {
+              scriptEl.async = false;
+            }
+            scriptEl.textContent = el.textContent || "";
+            el = scriptEl;
+            if (el.src) {
+              scriptLoads.push(
+                new Promise((resolve) => {
+                  el.addEventListener("load", resolve, { once: true });
+                  el.addEventListener("error", resolve, { once: true });
+                })
+              );
+            }
+          }
+          el.setAttribute("data-windex-head", "1");
+          document.head.appendChild(el);
+        });
+        if (scriptLoads.length) {
+          await Promise.all(scriptLoads);
+        }
+      })();
+      return headReady;
     }
 
     function saveMeta() {
@@ -866,7 +910,7 @@
       return { w, h };
     }
 
-    function createWidget(data) {
+    async function createWidget(data) {
       const widget = document.createElement("div");
       widget.className = "widget";
       widget.dataset.id = data.id || `widget-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -898,6 +942,7 @@
       body.dataset.raw = rawHtml;
       body.dataset.script = script;
       body.innerHTML = safeHtml;
+      await headReady;
       runWidgetScript(body, script);
 
       const header = widget.querySelector(".widget-header");
@@ -1123,7 +1168,7 @@
 
     document.getElementById("cancelWidget").addEventListener("click", closeEditor);
 
-    document.getElementById("saveWidget").addEventListener("click", () => {
+    document.getElementById("saveWidget").addEventListener("click", async () => {
       const title = widgetTitle.value.trim() || "Widget";
       const html = widgetHtml.value.trim();
       const script = widgetScript.value.trim();
@@ -1138,10 +1183,11 @@
           body.dataset.raw = html;
           body.dataset.script = script;
           body.innerHTML = safeHtml;
+          await headReady;
           runWidgetScript(body, script);
         }
       } else {
-        createWidget({
+        await createWidget({
           title,
           html,
           script,
@@ -1156,7 +1202,7 @@
       closeEditor();
     });
 
-    document.getElementById("saveMeta").addEventListener("click", () => {
+    document.getElementById("saveMeta").addEventListener("click", async () => {
       pageTitle.textContent = metaTitleInput.value.trim() || "Windex Home";
       pageSubtitle.textContent =
         metaSubtitleInput.value.trim() ||
@@ -1171,12 +1217,12 @@
         return;
       }
       metaHeadFeedback.classList.remove("warning");
-      applyHeadHtml(sanitizedHead.html, { sanitize: false });
+      await applyHeadHtml(sanitizedHead.html, { sanitize: false });
       saveMeta();
       closeMetaEditor();
     });
 
-    saveMetaAnyway.addEventListener("click", () => {
+    saveMetaAnyway.addEventListener("click", async () => {
       pageTitle.textContent = metaTitleInput.value.trim() || "Windex Home";
       pageSubtitle.textContent =
         metaSubtitleInput.value.trim() ||
@@ -1190,7 +1236,7 @@
       } else {
         metaHeadFeedback.classList.remove("warning");
       }
-      applyHeadHtml(metaHeadInput.value, { sanitize: false, unsafe: true });
+      await applyHeadHtml(metaHeadInput.value, { sanitize: false, unsafe: true });
       saveMeta();
       closeMetaEditor();
     });
@@ -1214,12 +1260,12 @@
 
     document.getElementById("cancelClear").addEventListener("click", closeClearConfirm);
     backupNow.addEventListener("click", downloadBackup);
-    document.getElementById("confirmClear").addEventListener("click", () => {
+    document.getElementById("confirmClear").addEventListener("click", async () => {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(META_KEY);
       closeClearConfirm();
       closeConfigPanel();
-      renderFromSource();
+      await renderFromSource();
     });
 
     importWidgets.addEventListener("click", () => {
@@ -1250,7 +1296,7 @@
           pageTitle.textContent = incomingMeta.title || pageTitle.textContent;
           pageSubtitle.textContent = incomingMeta.subtitle || pageSubtitle.textContent;
           if (typeof incomingMeta.headHtml === "string") {
-            applyHeadHtml(incomingMeta.headHtml, {
+            await applyHeadHtml(incomingMeta.headHtml, {
               sanitize: !incomingMeta.headHtmlUnsafe,
               unsafe: Boolean(incomingMeta.headHtmlUnsafe),
             });
@@ -1267,7 +1313,7 @@
           saveMeta();
         }
 
-        renderFromSource();
+        await renderFromSource();
         closeConfigPanel();
       } catch (err) {
         console.warn("Failed to import widgets", err);
@@ -1294,14 +1340,14 @@
       };
     }
 
-    function renderFromSource() {
+    async function renderFromSource() {
       grid.innerHTML = "";
 
       const meta = loadMeta();
       pageTitle.textContent = meta.title;
       pageSubtitle.textContent = meta.subtitle;
       document.title = meta.title;
-      applyHeadHtml(meta.headHtml, { sanitize: !meta.headHtmlUnsafe, unsafe: Boolean(meta.headHtmlUnsafe) });
+      await applyHeadHtml(meta.headHtml, { sanitize: !meta.headHtmlUnsafe, unsafe: Boolean(meta.headHtmlUnsafe) });
       themeMap = buildThemeMap(meta.themes);
       applyTheme(meta.theme, themeMap);
 
@@ -1317,14 +1363,16 @@
       }
       setGridSize(cols, rows);
 
-      normalized.forEach(createWidget);
+      for (const widget of normalized) {
+        await createWidget(widget);
+      }
       saveLayout();
       renderWidgetList();
     }
 
-    function init() {
+    async function init() {
       setMode(true);
-      renderFromSource();
+      await renderFromSource();
     }
 
     init();
