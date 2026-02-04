@@ -390,6 +390,7 @@
         placeholder="Paste <script>, <link>, <style>, or <meta> tags to load in <head>"
       ></textarea>
       <div class="hint">These tags load globally. For security, only add sources you trust.</div>
+      <div class="hint" id="metaHeadFeedback"></div>
       <div class="controls">
         <button class="secondary" id="cancelMeta">Cancel</button>
         <button id="saveMeta">Save</button>
@@ -464,6 +465,7 @@
     const metaTitleInput = document.getElementById("metaTitleInput");
     const metaSubtitleInput = document.getElementById("metaSubtitleInput");
     const metaHeadInput = document.getElementById("metaHeadInput");
+    const metaHeadFeedback = document.getElementById("metaHeadFeedback");
     const confirmOverlay = document.getElementById("confirmOverlay");
 
     let gridCols = DEFAULT_GRID_COLS;
@@ -674,9 +676,47 @@
       };
     }
 
+    function sanitizeHeadHtml(raw) {
+      const allowedTags = new Set(["SCRIPT", "LINK", "STYLE", "META"]);
+      const template = document.createElement("template");
+      template.innerHTML = raw || "";
+      const container = document.createElement("div");
+      const issues = [];
+
+      Array.from(template.content.childNodes).forEach((node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const tag = node.tagName;
+        if (!allowedTags.has(tag)) {
+          issues.push(`Removed <${tag.toLowerCase()}> tag.`);
+          return;
+        }
+        const clone = node.cloneNode(true);
+        Array.from(clone.attributes).forEach((attr) => {
+          const name = attr.name;
+          const value = attr.value || "";
+          if (name.toLowerCase().startsWith("on")) {
+            clone.removeAttribute(name);
+            issues.push(`Removed inline handler "${name}".`);
+            return;
+          }
+          if ((name === "src" || name === "href") && value.trim().toLowerCase().startsWith("javascript:")) {
+            clone.removeAttribute(name);
+            issues.push(`Removed javascript: URL in ${name}.`);
+          }
+        });
+        container.appendChild(clone);
+      });
+
+      return { html: container.innerHTML.trim(), issues };
+    }
+
     function applyHeadHtml(nextHeadHtml) {
       document.querySelectorAll("[data-windex-head]").forEach((node) => node.remove());
-      headHtml = typeof nextHeadHtml === "string" ? nextHeadHtml.trim() : "";
+      const sanitized = sanitizeHeadHtml(nextHeadHtml);
+      if (sanitized.issues.length) {
+        console.warn("Head HTML sanitized:", sanitized.issues);
+      }
+      headHtml = sanitized.html;
       if (!headHtml) return;
       const template = document.createElement("template");
       template.innerHTML = headHtml;
@@ -955,6 +995,7 @@
       metaTitleInput.value = pageTitle.textContent;
       metaSubtitleInput.value = pageSubtitle.textContent;
       metaHeadInput.value = headHtml;
+      metaHeadFeedback.textContent = "";
     }
 
     function closeMetaEditor() {
@@ -962,6 +1003,7 @@
       metaTitleInput.value = "";
       metaSubtitleInput.value = "";
       metaHeadInput.value = "";
+      metaHeadFeedback.textContent = "";
     }
 
     function openClearConfirm() {
@@ -1081,7 +1123,15 @@
       pageSubtitle.textContent =
         metaSubtitleInput.value.trim() ||
         "Drag widgets by the header, resize from the corner, snap to the grid.";
-      applyHeadHtml(metaHeadInput.value);
+      const sanitizedHead = sanitizeHeadHtml(metaHeadInput.value);
+      if (sanitizedHead.issues.length) {
+        metaHeadInput.value = sanitizedHead.html;
+        metaHeadFeedback.textContent = `Adjusted head HTML: ${sanitizedHead.issues.slice(0, 3).join(" ")}${
+          sanitizedHead.issues.length > 3 ? " More removed." : ""
+        }`;
+        return;
+      }
+      applyHeadHtml(sanitizedHead.html);
       saveMeta();
       closeMetaEditor();
     });
