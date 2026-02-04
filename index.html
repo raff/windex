@@ -1,0 +1,1174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Windex Home</title>
+  <style>
+    :root {
+      --bg-1: #f6f1e7;
+      --bg-2: #f1e9d9;
+      --ink: #1f1d1a;
+      --accent: #d38b5d;
+      --grid-line: rgba(31, 29, 26, 0.12);
+      --card: #fff8ef;
+      --shadow: rgba(31, 29, 26, 0.2);
+      --border: rgba(31, 29, 26, 0.18);
+      --border-soft: rgba(31, 29, 26, 0.08);
+      --radius: 16px;
+      --grid-cols: 4;
+      --grid-rows: 4;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Fraunces", "Iowan Old Style", "Palatino", serif;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, var(--bg-2), var(--bg-1));
+      min-height: 100vh;
+    }
+
+    .page {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+      gap: 12px;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.5px;
+    }
+
+    .title p {
+      margin: 0;
+      font-size: 14px;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      opacity: 0.7;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+    }
+
+    body.view-mode .edit-only {
+      display: none !important;
+    }
+
+    body.view-mode .widget-header {
+      cursor: default;
+    }
+
+    body.view-mode .resize-handle {
+      display: none;
+    }
+
+    body.view-mode .widget-actions {
+      display: none;
+    }
+
+    body.view-mode .grid::before {
+      opacity: 0;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fffaf3;
+      box-shadow: 0 6px 16px var(--shadow);
+    }
+
+    button.secondary {
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid rgba(31, 29, 26, 0.15);
+      box-shadow: none;
+    }
+
+    .grid-wrap {
+      position: relative;
+      border-radius: 24px;
+      padding: 18px;
+      background: var(--grid-wrap);
+      box-shadow: inset 0 0 0 1px rgba(31, 29, 26, 0.08);
+      overflow: hidden;
+    }
+
+    .grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(var(--grid-cols), 1fr);
+      grid-template-rows: repeat(var(--grid-rows), 1fr);
+      gap: 12px;
+      min-height: 70vh;
+    }
+
+    .grid::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+      background-size: calc(100% / var(--grid-cols)) calc(100% / var(--grid-rows));
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .widget {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 24px rgba(31, 29, 26, 0.15);
+      overflow: hidden;
+      border: 1px solid rgba(31, 29, 26, 0.12);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      grid-column: var(--col) / span var(--w);
+      grid-row: var(--row) / span var(--h);
+      animation: rise 0.35s ease;
+    }
+
+    .widget.dragging {
+      transform: scale(1.02);
+      box-shadow: 0 14px 32px rgba(31, 29, 26, 0.25);
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(31, 29, 26, 0.04);
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      cursor: grab;
+    }
+
+    .widget-header:active { cursor: grabbing; }
+
+    .widget-title {
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .widget-version {
+      font-size: 11px;
+      opacity: 0.6;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      margin-left: auto;
+      margin-right: 4px;
+    }
+
+    .widget-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .widget-actions button {
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid rgba(31, 29, 26, 0.2);
+      box-shadow: none;
+    }
+
+    .widget-body {
+      flex: 1;
+      padding: 12px;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 14px;
+      overflow: auto;
+    }
+
+    .widget-table {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+    }
+
+    .widget-table .row {
+      display: grid;
+      grid-template-columns: 1.2fr 2fr 0.8fr 0.8fr 1fr;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .widget-table .row.header {
+      background: var(--border-soft);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-size: 11px;
+    }
+
+    .widget-table .row:last-child {
+      border-bottom: none;
+    }
+
+    .widget-table .cell {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .resize-handle {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 2px solid var(--border);
+      background: var(--border-soft);
+      cursor: nwse-resize;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(31, 29, 26, 0.4);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+    }
+
+    .overlay.active { display: flex; }
+
+    .overlay.top {
+      z-index: 20;
+    }
+
+    .panel {
+      width: min(680px, 92vw);
+      background: var(--card);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 18px 40px rgba(31, 29, 26, 0.3);
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .panel textarea {
+      width: 100%;
+      min-height: 140px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 12px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+      font-size: 12px;
+      background: var(--bg-1);
+      color: var(--ink);
+    }
+
+    .panel input {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      background: var(--bg-1);
+      color: var(--ink);
+    }
+
+    .panel select {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      background: var(--bg-1);
+      color: var(--ink);
+    }
+
+    .panel label {
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      opacity: 0.7;
+    }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.6;
+      font-family: "Work Sans", "Helvetica Neue", sans-serif;
+    }
+
+    @keyframes rise {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 700px) {
+      .grid { min-height: 60vh; }
+      header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="title">
+        <h1 id="pageTitle">Windex Home</h1>
+        <p id="pageSubtitle" class="edit-subtitle">Drag widgets by the header, resize from the corner, snap to the grid.</p>
+      </div>
+      <div class="controls">
+        <button class="secondary edit-only" id="openConfig">Configuration</button>
+        <button class="edit-only" id="addWidget">Add widget</button>
+        <button class="secondary" id="toggleMode">View mode</button>
+      </div>
+    </header>
+
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="panel">
+      <h3 id="panelHeading">Add a widget</h3>
+      <input id="widgetTitle" placeholder="Widget title" />
+      <textarea id="widgetHtml" placeholder="Widget HTML"></textarea>
+      <textarea id="widgetScript" placeholder="Widget script (optional)"></textarea>
+      <div class="hint">Tip: You can include &lt;script&gt; tags in HTML, but using the Script field is cleaner.</div>
+      <div class="controls">
+        <button class="secondary" id="cancelWidget">Cancel</button>
+        <button id="saveWidget">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="metaOverlay">
+    <div class="panel">
+      <h3>Edit page title</h3>
+      <input id="metaTitleInput" placeholder="Page title" />
+      <input id="metaSubtitleInput" placeholder="Page subtitle" />
+      <div class="controls">
+        <button class="secondary" id="cancelMeta">Cancel</button>
+        <button id="saveMeta">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay top" id="confirmOverlay">
+    <div class="panel">
+      <h3>Clear local data?</h3>
+      <div class="hint">This clears local layout and titles.</div>
+      <div class="controls">
+        <button class="secondary" id="cancelClear">Cancel</button>
+        <button id="confirmClear">Clear data</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="configOverlay">
+    <div class="panel">
+      <h3>Configuration</h3>
+      <div class="controls">
+        <button class="secondary" id="importWidgets">Load configuration</button>
+        <button class="secondary" id="backupNow">Save configuration</button>
+        <button id="clearLocal">Clear local data</button>
+      </div>
+      <div class="controls">
+        <label for="themeSelect">Theme</label>
+        <select id="themeSelect"></select>
+      </div>
+      <div>
+        <strong>Current widgets</strong>
+        <div id="widgetList" class="widget-table"></div>
+      </div>
+      <div class="controls">
+        <button class="secondary" id="closeConfig">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <input id="importFile" type="file" accept="application/json" hidden />
+
+  <script>
+    const DEFAULT_GRID_COLS = 4;
+    const DEFAULT_GRID_ROWS = 4;
+    const STORAGE_KEY = "windex-layout-v1";
+    const META_KEY = "windex-meta-v1";
+    const SCRIPT_CLOSE = "</scr" + "ipt>";
+
+    const grid = document.getElementById("grid");
+    const overlay = document.getElementById("overlay");
+    const metaOverlay = document.getElementById("metaOverlay");
+    const widgetTitle = document.getElementById("widgetTitle");
+    const widgetHtml = document.getElementById("widgetHtml");
+    const widgetScript = document.getElementById("widgetScript");
+    const toggleMode = document.getElementById("toggleMode");
+    const openConfig = document.getElementById("openConfig");
+    const configOverlay = document.getElementById("configOverlay");
+    const closeConfig = document.getElementById("closeConfig");
+    const clearLocal = document.getElementById("clearLocal");
+    const backupNow = document.getElementById("backupNow");
+    const widgetList = document.getElementById("widgetList");
+    const importWidgets = document.getElementById("importWidgets");
+    const importFile = document.getElementById("importFile");
+    const themeSelect = document.getElementById("themeSelect");
+    const body = document.body;
+    let isViewMode = false;
+
+    const pageTitle = document.getElementById("pageTitle");
+    const pageSubtitle = document.getElementById("pageSubtitle");
+    const panelHeading = document.getElementById("panelHeading");
+    const metaTitleInput = document.getElementById("metaTitleInput");
+    const metaSubtitleInput = document.getElementById("metaSubtitleInput");
+    const confirmOverlay = document.getElementById("confirmOverlay");
+
+    let gridCols = DEFAULT_GRID_COLS;
+    let gridRows = DEFAULT_GRID_ROWS;
+
+    function setGridSize(cols, rows) {
+      gridCols = cols;
+      gridRows = rows;
+      document.documentElement.style.setProperty("--grid-cols", gridCols);
+      document.documentElement.style.setProperty("--grid-rows", gridRows);
+    }
+
+    function setMode(viewMode) {
+      isViewMode = viewMode;
+      body.classList.toggle("view-mode", viewMode);
+      toggleMode.textContent = viewMode ? "Edit mode" : "View mode";
+      if (viewMode) {
+        closeEditor();
+        closeMetaEditor();
+        closeConfigPanel();
+        closeClearConfirm();
+      }
+    }
+
+    function sanitizeWidgetHtml(html) {
+      return html.replace(/<\/script>/gi, SCRIPT_CLOSE);
+    }
+
+    function runWidgetScript(body, script) {
+      if (!script || !script.trim()) return;
+      const scriptEl = document.createElement("script");
+      scriptEl.type = "text/javascript";
+      scriptEl.textContent = script;
+      body.appendChild(scriptEl);
+    }
+
+    function hashString(value) {
+      let hash = 0;
+      for (let i = 0; i < value.length; i += 1) {
+        hash = (hash << 5) - hash + value.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash).toString(16);
+    }
+
+    function normalizeWidget(widget, index) {
+      const base = widget || {};
+      const id =
+        base.id ||
+        `w-${hashString(`${base.title || ""}|${base.col || 0}|${base.row || 0}|${base.w || 1}|${base.h || 1}|${index}`)}`;
+      const version = Number.isFinite(base.version) ? base.version : 1;
+      return { ...base, id, version };
+    }
+
+    function mergeWidgets(externalWidgets, localWidgets) {
+      const external = (externalWidgets || []).map(normalizeWidget);
+      const local = (localWidgets || []).map(normalizeWidget);
+      const localMap = new Map(local.map((widget) => [widget.id, widget]));
+      const merged = [];
+
+      external.forEach((widget) => {
+        const localWidget = localMap.get(widget.id);
+        if (localWidget) {
+          merged.push(widget.version > localWidget.version ? widget : localWidget);
+          localMap.delete(widget.id);
+        } else {
+          merged.push(widget);
+        }
+      });
+
+      localMap.forEach((widget) => merged.push(widget));
+      return merged;
+    }
+
+    const sampleWidgets = [
+      {
+        title: "Focus",
+        html: "<h3>Today</h3><ul><li>Finish prototype</li><li>Send update</li><li>Stretch</li></ul>",
+        col: 1,
+        row: 1,
+        w: 2,
+        h: 1,
+      },
+      {
+        title: "Weather",
+        html: "<div style=\"font-size:32px;font-weight:600;\">68°</div><div>Sunny with light breeze</div>",
+        col: 3,
+        row: 1,
+        w: 2,
+        h: 1,
+      },
+      {
+        title: "Notes",
+        html: "<textarea style=\"width:100%;height:100%;border:1px solid #e0d7c5;border-radius:12px;padding:8px;font-family:inherit;\">Weekly highlights...</textarea>",
+        col: 1,
+        row: 2,
+        w: 2,
+        h: 2,
+      },
+      {
+        title: "Clock",
+        html: "<div id=\"clock\" style=\"font-size:28px;font-weight:600;\"></div>",
+        script: "setInterval(()=>{const now=new Date();document.getElementById('clock').textContent=now.toLocaleTimeString();},1000);",
+        col: 3,
+        row: 2,
+        w: 2,
+        h: 2,
+      },
+    ];
+
+    function getLocalLayout() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return Array.isArray(parsed) ? parsed : null;
+        } catch (err) {
+          console.warn("Failed to parse layout", err);
+        }
+      }
+      return null;
+    }
+
+    function loadLayout() {
+      return getLocalLayout() || sampleWidgets;
+    }
+
+    const DEFAULT_THEMES = {
+      light: {
+        "bg-1": "#f6f1e7",
+        "bg-2": "#f1e9d9",
+        ink: "#1f1d1a",
+        accent: "#d38b5d",
+        "grid-line": "rgba(31, 29, 26, 0.12)",
+        "grid-wrap": "linear-gradient(145deg, #fff9f0, #f2e7d7)",
+        card: "#fff8ef",
+        shadow: "rgba(31, 29, 26, 0.2)",
+        border: "rgba(31, 29, 26, 0.18)",
+        "border-soft": "rgba(31, 29, 26, 0.08)",
+      },
+      dark: {
+        "bg-1": "#151718",
+        "bg-2": "#1e2022",
+        ink: "#f3efe8",
+        accent: "#d18a5c",
+        "grid-line": "rgba(243, 239, 232, 0.12)",
+        "grid-wrap": "linear-gradient(145deg, #1f2224, #181a1c)",
+        card: "#232628",
+        shadow: "rgba(0, 0, 0, 0.35)",
+        border: "rgba(243, 239, 232, 0.18)",
+        "border-soft": "rgba(243, 239, 232, 0.08)",
+      },
+      dusk: {
+        "bg-1": "#1b2331",
+        "bg-2": "#243048",
+        ink: "#f6f2ea",
+        accent: "#f3b25d",
+        "grid-line": "rgba(246, 242, 234, 0.14)",
+        "grid-wrap": "linear-gradient(145deg, #2a344c, #1f2938)",
+        card: "#2b3446",
+        shadow: "rgba(0, 0, 0, 0.4)",
+        border: "rgba(246, 242, 234, 0.2)",
+        "border-soft": "rgba(246, 242, 234, 0.08)",
+      },
+    };
+
+    let themeMap = { ...DEFAULT_THEMES };
+
+    function buildThemeMap(metaThemes) {
+      if (!metaThemes || typeof metaThemes !== "object") return { ...DEFAULT_THEMES };
+      const merged = { ...DEFAULT_THEMES };
+      Object.entries(metaThemes).forEach(([name, values]) => {
+        if (!values || typeof values !== "object") return;
+        const base = DEFAULT_THEMES[name] || {};
+        merged[name] = { ...base, ...values };
+      });
+      return merged;
+    }
+
+    function applyTheme(theme, themes = themeMap) {
+      const nextTheme = themes[theme] ? theme : "light";
+      const palette = themes[nextTheme] || DEFAULT_THEMES.light;
+      Object.entries(palette).forEach(([token, value]) => {
+        document.documentElement.style.setProperty(`--${token}`, value);
+      });
+      body.dataset.theme = nextTheme;
+      return nextTheme;
+    }
+
+    function loadMeta() {
+      const saved = localStorage.getItem(META_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (err) {
+          console.warn("Failed to parse meta", err);
+        }
+      }
+      return {
+        title: "Windex Home",
+        subtitle: "Drag widgets by the header, resize from the corner, snap to the grid.",
+        gridCols: DEFAULT_GRID_COLS,
+        gridRows: DEFAULT_GRID_ROWS,
+        theme: "light",
+        themes: DEFAULT_THEMES,
+      };
+    }
+
+    function saveMeta() {
+      localStorage.setItem(
+        META_KEY,
+        JSON.stringify({
+          title: pageTitle.textContent,
+          subtitle: pageSubtitle.textContent,
+          gridCols,
+          gridRows,
+          theme: body.dataset.theme || "light",
+          themes: themeMap,
+        })
+      );
+    }
+
+    function getWidgetsFromDom() {
+      return Array.from(document.querySelectorAll(".widget")).map((widget) => {
+        return {
+          id: widget.dataset.id,
+          title: widget.querySelector(".widget-title").textContent,
+          html: widget.querySelector(".widget-body").dataset.raw || "",
+          script: widget.querySelector(".widget-body").dataset.script || "",
+          version: Number(widget.dataset.version) || 1,
+          col: Number(widget.style.getPropertyValue("--col")),
+          row: Number(widget.style.getPropertyValue("--row")),
+          w: Number(widget.style.getPropertyValue("--w")),
+          h: Number(widget.style.getPropertyValue("--h")),
+        };
+      });
+    }
+
+    function saveLayout() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(getWidgetsFromDom()));
+      renderWidgetList();
+    }
+
+    function bumpWidgetVersion(widget) {
+      const nextVersion = (Number(widget.dataset.version) || 1) + 1;
+      widget.dataset.version = nextVersion;
+      const versionEl = widget.querySelector(".widget-version");
+      if (versionEl) {
+        versionEl.textContent = `v${nextVersion}`;
+      }
+    }
+
+    function buildBackupPayload() {
+      return {
+        meta: {
+          title: pageTitle.textContent,
+          subtitle: pageSubtitle.textContent,
+          gridCols,
+          gridRows,
+          theme: body.dataset.theme || "light",
+          themes: themeMap,
+        },
+        widgets: getWidgetsFromDom(),
+      };
+    }
+
+    function downloadBackup() {
+      const payload = buildBackupPayload();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `windex-backup-${stamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function gridMetrics() {
+      const rect = grid.getBoundingClientRect();
+      return {
+        rect,
+        cellW: rect.width / gridCols,
+        cellH: rect.height / gridRows,
+      };
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function snapToGrid(pxX, pxY) {
+      const { cellW, cellH } = gridMetrics();
+      const col = clamp(Math.round(pxX / cellW) + 1, 1, gridCols);
+      const row = clamp(Math.round(pxY / cellH) + 1, 1, gridRows);
+      return { col, row };
+    }
+
+    function snapSize(pxW, pxH) {
+      const { cellW, cellH } = gridMetrics();
+      const w = clamp(Math.round(pxW / cellW), 1, gridCols);
+      const h = clamp(Math.round(pxH / cellH), 1, gridRows);
+      return { w, h };
+    }
+
+    function createWidget(data) {
+      const widget = document.createElement("div");
+      widget.className = "widget";
+      widget.dataset.id = data.id || `widget-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      widget.dataset.version = Number.isFinite(data.version) ? data.version : 1;
+      widget.style.setProperty("--col", data.col);
+      widget.style.setProperty("--row", data.row);
+      widget.style.setProperty("--w", data.w);
+      widget.style.setProperty("--h", data.h);
+
+      widget.innerHTML = `
+        <div class="widget-header">
+          <span class="widget-title"></span>
+          <span class="widget-version"></span>
+          <div class="widget-actions edit-only">
+            <button data-action="edit">Edit</button>
+            <button data-action="remove">Remove</button>
+          </div>
+        </div>
+        <div class="widget-body"></div>
+        <div class="resize-handle" title="Resize"></div>
+      `;
+
+      widget.querySelector(".widget-title").textContent = data.title || "Widget";
+      widget.querySelector(".widget-version").textContent = `v${widget.dataset.version}`;
+      const body = widget.querySelector(".widget-body");
+      const rawHtml = data.html || "";
+      const script = data.script || "";
+      const safeHtml = sanitizeWidgetHtml(rawHtml);
+      body.dataset.raw = rawHtml;
+      body.dataset.script = script;
+      body.innerHTML = safeHtml;
+      runWidgetScript(body, script);
+
+      const header = widget.querySelector(".widget-header");
+      const handle = widget.querySelector(".resize-handle");
+
+      header.addEventListener("pointerdown", (event) => startDrag(event, widget));
+      handle.addEventListener("pointerdown", (event) => startResize(event, widget));
+      widget.addEventListener("click", (event) => {
+        if (isViewMode) return;
+        const action = event.target.dataset.action;
+        if (action === "remove") {
+          widget.remove();
+          saveLayout();
+        }
+        if (action === "edit") {
+          openEditor(widget);
+        }
+      });
+
+      grid.appendChild(widget);
+    }
+
+    function startDrag(event, widget) {
+      if (isViewMode) return;
+      if (event.button !== 0) return;
+      event.preventDefault();
+      widget.classList.add("dragging");
+
+      const { rect, cellW, cellH } = gridMetrics();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startCol = Number(widget.style.getPropertyValue("--col"));
+      const startRow = Number(widget.style.getPropertyValue("--row"));
+
+      function onMove(moveEvent) {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        const colOffset = Math.round(dx / cellW);
+        const rowOffset = Math.round(dy / cellH);
+        const nextCol = clamp(startCol + colOffset, 1, gridCols - Number(widget.style.getPropertyValue("--w")) + 1);
+        const nextRow = clamp(startRow + rowOffset, 1, gridRows - Number(widget.style.getPropertyValue("--h")) + 1);
+        widget.style.setProperty("--col", nextCol);
+        widget.style.setProperty("--row", nextRow);
+      }
+
+      function onUp() {
+        widget.classList.remove("dragging");
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        const endCol = Number(widget.style.getPropertyValue("--col"));
+        const endRow = Number(widget.style.getPropertyValue("--row"));
+        if (endCol !== startCol || endRow !== startRow) {
+          bumpWidgetVersion(widget);
+        }
+        saveLayout();
+      }
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp, { once: true });
+    }
+
+    function startResize(event, widget) {
+      if (isViewMode) return;
+      if (event.button !== 0) return;
+      event.preventDefault();
+      widget.classList.add("dragging");
+
+      const { cellW, cellH } = gridMetrics();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startW = Number(widget.style.getPropertyValue("--w"));
+      const startH = Number(widget.style.getPropertyValue("--h"));
+      const startCol = Number(widget.style.getPropertyValue("--col"));
+      const startRow = Number(widget.style.getPropertyValue("--row"));
+
+      function onMove(moveEvent) {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        const wOffset = Math.round(dx / cellW);
+        const hOffset = Math.round(dy / cellH);
+        const nextW = clamp(startW + wOffset, 1, gridCols - startCol + 1);
+        const nextH = clamp(startH + hOffset, 1, gridRows - startRow + 1);
+        widget.style.setProperty("--w", nextW);
+        widget.style.setProperty("--h", nextH);
+      }
+
+      function onUp() {
+        widget.classList.remove("dragging");
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        const endW = Number(widget.style.getPropertyValue("--w"));
+        const endH = Number(widget.style.getPropertyValue("--h"));
+        if (endW !== startW || endH !== startH) {
+          bumpWidgetVersion(widget);
+        }
+        saveLayout();
+      }
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp, { once: true });
+    }
+
+    function openEditor(widget) {
+      overlay.classList.add("active");
+      panelHeading.textContent = "Edit widget";
+      widgetTitle.value = widget.querySelector(".widget-title").textContent;
+      widgetHtml.value = widget.querySelector(".widget-body").dataset.raw || "";
+      widgetScript.value = widget.querySelector(".widget-body").dataset.script || "";
+      overlay.dataset.editing = widget.dataset.id;
+    }
+
+    function closeEditor() {
+      overlay.classList.remove("active");
+      widgetTitle.value = "";
+      widgetHtml.value = "";
+      widgetScript.value = "";
+      delete overlay.dataset.editing;
+    }
+
+    document.getElementById("addWidget").addEventListener("click", () => {
+      overlay.classList.add("active");
+      panelHeading.textContent = "Add a widget";
+      widgetTitle.value = "";
+      widgetHtml.value = "";
+      widgetScript.value = "";
+    });
+
+    function openMetaEditor() {
+      if (isViewMode) return;
+      metaOverlay.classList.add("active");
+      metaTitleInput.value = pageTitle.textContent;
+      metaSubtitleInput.value = pageSubtitle.textContent;
+    }
+
+    function closeMetaEditor() {
+      metaOverlay.classList.remove("active");
+      metaTitleInput.value = "";
+      metaSubtitleInput.value = "";
+    }
+
+    function openClearConfirm() {
+      if (isViewMode) return;
+      confirmOverlay.classList.add("active");
+    }
+
+    function closeClearConfirm() {
+      confirmOverlay.classList.remove("active");
+    }
+
+    function renderWidgetList() {
+      const widgets = getWidgetsFromDom();
+      if (!widgets.length) {
+        widgetList.innerHTML = "<div class=\"row\"><div class=\"cell\">No widgets yet.</div></div>";
+        return;
+      }
+      const header = `
+        <div class="row header">
+          <div class="cell">ID</div>
+          <div class="cell">Title</div>
+          <div class="cell">Version</div>
+          <div class="cell">Position</div>
+          <div class="cell">Size</div>
+        </div>
+      `;
+      const rows = widgets
+        .map((widget) => {
+          const size = `${widget.w}x${widget.h}`;
+          const pos = `(${widget.col},${widget.row})`;
+          const version = `v${widget.version}`;
+          const title = widget.title || "Untitled";
+          return `
+            <div class="row">
+              <div class="cell" title="${widget.id}">${widget.id}</div>
+              <div class="cell" title="${title}">${title}</div>
+              <div class="cell">${version}</div>
+              <div class="cell">${pos}</div>
+              <div class="cell">${size}</div>
+            </div>
+          `;
+        })
+        .join("");
+      widgetList.innerHTML = `${header}${rows}`;
+    }
+
+    function renderThemeOptions() {
+      const themeNames = Object.keys(themeMap);
+      if (!themeNames.length) {
+        themeSelect.innerHTML = "";
+        return;
+      }
+      const current = body.dataset.theme || "light";
+      themeSelect.innerHTML = themeNames
+        .map((name) => `<option value="${name}">${name}</option>`)
+        .join("");
+      themeSelect.value = themeNames.includes(current) ? current : themeNames[0];
+    }
+
+    function openConfigPanel() {
+      if (isViewMode) return;
+      renderWidgetList();
+      renderThemeOptions();
+      configOverlay.classList.add("active");
+    }
+
+    function closeConfigPanel() {
+      configOverlay.classList.remove("active");
+    }
+
+    pageTitle.addEventListener("click", openMetaEditor);
+
+    toggleMode.addEventListener("click", () => {
+      setMode(!isViewMode);
+    });
+
+    openConfig.addEventListener("click", openConfigPanel);
+    closeConfig.addEventListener("click", closeConfigPanel);
+
+    document.getElementById("cancelWidget").addEventListener("click", closeEditor);
+
+    document.getElementById("saveWidget").addEventListener("click", () => {
+      const title = widgetTitle.value.trim() || "Widget";
+      const html = widgetHtml.value.trim();
+      const script = widgetScript.value.trim();
+      const safeHtml = sanitizeWidgetHtml(html);
+
+      if (overlay.dataset.editing) {
+        const widget = document.querySelector(`.widget[data-id="${overlay.dataset.editing}"]`);
+        if (widget) {
+          bumpWidgetVersion(widget);
+          widget.querySelector(".widget-title").textContent = title;
+          const body = widget.querySelector(".widget-body");
+          body.dataset.raw = html;
+          body.dataset.script = script;
+          body.innerHTML = safeHtml;
+          runWidgetScript(body, script);
+        }
+      } else {
+        createWidget({
+          title,
+          html,
+          script,
+          col: 1,
+          row: 1,
+          w: 1,
+          h: 1,
+        });
+      }
+
+      saveLayout();
+      closeEditor();
+    });
+
+    document.getElementById("saveMeta").addEventListener("click", () => {
+      pageTitle.textContent = metaTitleInput.value.trim() || "Windex Home";
+      pageSubtitle.textContent =
+        metaSubtitleInput.value.trim() ||
+        "Drag widgets by the header, resize from the corner, snap to the grid.";
+      saveMeta();
+      closeMetaEditor();
+    });
+
+    document.getElementById("cancelMeta").addEventListener("click", closeMetaEditor);
+
+    clearLocal.addEventListener("click", openClearConfirm);
+
+    document.getElementById("cancelClear").addEventListener("click", closeClearConfirm);
+    backupNow.addEventListener("click", downloadBackup);
+    document.getElementById("confirmClear").addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(META_KEY);
+      closeClearConfirm();
+      closeConfigPanel();
+      renderFromSource();
+    });
+
+    importWidgets.addEventListener("click", () => {
+      if (isViewMode) return;
+      importFile.value = "";
+      importFile.click();
+    });
+
+    themeSelect.addEventListener("change", (event) => {
+      const nextTheme = event.target.value;
+      applyTheme(nextTheme, themeMap);
+      saveMeta();
+    });
+
+    importFile.addEventListener("change", async (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const incomingWidgets = Array.isArray(data) ? data : data.widgets || [];
+        const incomingMeta = Array.isArray(data) ? null : data.meta || null;
+        const localLayout = getLocalLayout() || [];
+        const merged = mergeWidgets(incomingWidgets, localLayout);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+        if (incomingMeta) {
+          pageTitle.textContent = incomingMeta.title || pageTitle.textContent;
+          pageSubtitle.textContent = incomingMeta.subtitle || pageSubtitle.textContent;
+          if (Number.isFinite(incomingMeta.gridCols) && Number.isFinite(incomingMeta.gridRows)) {
+            setGridSize(incomingMeta.gridCols, incomingMeta.gridRows);
+          }
+          if (incomingMeta.themes) {
+            themeMap = buildThemeMap(incomingMeta.themes);
+          }
+          if (incomingMeta.theme) {
+            applyTheme(incomingMeta.theme, themeMap);
+          }
+          saveMeta();
+        }
+
+        renderFromSource();
+        closeConfigPanel();
+      } catch (err) {
+        console.warn("Failed to import widgets", err);
+        alert("Could not import widgets: invalid JSON file.");
+      }
+    });
+    function computeGridFromWidgets(widgets) {
+      if (!widgets.length) {
+        return { cols: DEFAULT_GRID_COLS, rows: DEFAULT_GRID_ROWS };
+      }
+      let maxCol = 1;
+      let maxRow = 1;
+      widgets.forEach((widget) => {
+        const col = Number(widget.col || 1);
+        const row = Number(widget.row || 1);
+        const w = Number(widget.w || 1);
+        const h = Number(widget.h || 1);
+        maxCol = Math.max(maxCol, col + w - 1);
+        maxRow = Math.max(maxRow, row + h - 1);
+      });
+      return {
+        cols: Math.max(DEFAULT_GRID_COLS, maxCol),
+        rows: Math.max(DEFAULT_GRID_ROWS, maxRow),
+      };
+    }
+
+    function renderFromSource() {
+      grid.innerHTML = "";
+
+      const meta = loadMeta();
+      pageTitle.textContent = meta.title;
+      pageSubtitle.textContent = meta.subtitle;
+      themeMap = buildThemeMap(meta.themes);
+      applyTheme(meta.theme, themeMap);
+
+      const localLayout = getLocalLayout();
+      const widgets = localLayout || sampleWidgets;
+      const normalized = widgets.map(normalizeWidget);
+      const gridFromWidgets = computeGridFromWidgets(normalized);
+      let cols = gridFromWidgets.cols;
+      let rows = gridFromWidgets.rows;
+      if (Number.isFinite(meta.gridCols) && Number.isFinite(meta.gridRows)) {
+        cols = Math.max(cols, meta.gridCols);
+        rows = Math.max(rows, meta.gridRows);
+      }
+      setGridSize(cols, rows);
+
+      normalized.forEach(createWidget);
+      saveLayout();
+      renderWidgetList();
+    }
+
+    function init() {
+      setMode(true);
+      renderFromSource();
+    }
+
+    init();
+  </script>
+</body>
+</html>

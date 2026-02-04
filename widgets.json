@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "title": "Windex Home",
+    "subtitle": "Drag widgets by the header, resize from the corner, snap to the grid.",
+    "gridCols": 6,
+    "gridRows": 6,
+    "theme": "light",
+    "themes": {
+      "light": {
+        "bg-1": "#f6f1e7",
+        "bg-2": "#f1e9d9",
+        "ink": "#1f1d1a",
+        "accent": "#d38b5d",
+        "grid-line": "rgba(31, 29, 26, 0.12)",
+        "grid-wrap": "linear-gradient(145deg, #fff9f0, #f2e7d7)",
+        "card": "#fff8ef",
+        "shadow": "rgba(31, 29, 26, 0.2)",
+        "border": "rgba(31, 29, 26, 0.18)",
+        "border-soft": "rgba(31, 29, 26, 0.08)"
+      },
+      "dark": {
+        "bg-1": "#151718",
+        "bg-2": "#1e2022",
+        "ink": "#f3efe8",
+        "accent": "#d18a5c",
+        "grid-line": "rgba(243, 239, 232, 0.12)",
+        "grid-wrap": "linear-gradient(145deg, #1f2224, #181a1c)",
+        "card": "#232628",
+        "shadow": "rgba(0, 0, 0, 0.35)",
+        "border": "rgba(243, 239, 232, 0.18)",
+        "border-soft": "rgba(243, 239, 232, 0.08)"
+      },
+      "dusk": {
+        "bg-1": "#1b2331",
+        "bg-2": "#243048",
+        "ink": "#f6f2ea",
+        "accent": "#f3b25d",
+        "grid-line": "rgba(246, 242, 234, 0.14)",
+        "grid-wrap": "linear-gradient(145deg, #2a344c, #1f2938)",
+        "card": "#2b3446",
+        "shadow": "rgba(0, 0, 0, 0.4)",
+        "border": "rgba(246, 242, 234, 0.2)",
+        "border-soft": "rgba(246, 242, 234, 0.08)"
+      }
+    }
+  },
+  "widgets": [
+    {
+      "title": "Focus",
+      "html": "<h3>Today</h3><ul><li>Finish prototype</li><li>Send update</li><li>Stretch</li></ul>",
+      "col": 1,
+      "row": 1,
+      "w": 2,
+      "h": 1
+    },
+    {
+      "title": "Weather",
+      "html": "<div style=\"font-size:32px;font-weight:600;\">68°</div><div>Sunny with light breeze</div>",
+      "col": 3,
+      "row": 1,
+      "w": 2,
+      "h": 1
+    },
+    {
+      "title": "Notes",
+      "html": "<textarea style=\"width:100%;height:100%;border:1px solid #e0d7c5;border-radius:12px;padding:8px;font-family:inherit;\">Weekly highlights...</textarea>",
+      "col": 1,
+      "row": 2,
+      "w": 2,
+      "h": 2
+    },
+    {
+      "title": "Clock",
+      "html": "<div id=\"clock\" style=\"font-size:28px;font-weight:600;\"></div>",
+      "script": "setInterval(()=>{const now=new Date();document.getElementById('clock').textContent=now.toLocaleTimeString();console.log(now);},1000);",
+      "col": 3,
+      "row": 2,
+      "w": 2,
+      "h": 2
+    }
+  ]
+}
