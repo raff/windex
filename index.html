@@ -384,6 +384,12 @@
       <h3>Edit page title</h3>
       <input id="metaTitleInput" placeholder="Page title" />
       <input id="metaSubtitleInput" placeholder="Page subtitle" />
+      <h3>Custom head HTML</h3>
+      <textarea
+        id="metaHeadInput"
+        placeholder="Paste <script>, <link>, <style>, or <meta> tags to load in <head>"
+      ></textarea>
+      <div class="hint">These tags load globally. For security, only add sources you trust.</div>
       <div class="controls">
         <button class="secondary" id="cancelMeta">Cancel</button>
         <button id="saveMeta">Save</button>
@@ -457,10 +463,12 @@
     const panelHeading = document.getElementById("panelHeading");
     const metaTitleInput = document.getElementById("metaTitleInput");
     const metaSubtitleInput = document.getElementById("metaSubtitleInput");
+    const metaHeadInput = document.getElementById("metaHeadInput");
     const confirmOverlay = document.getElementById("confirmOverlay");
 
     let gridCols = DEFAULT_GRID_COLS;
     let gridRows = DEFAULT_GRID_ROWS;
+    let headHtml = "";
 
     function setGridSize(cols, rows) {
       gridCols = cols;
@@ -662,10 +670,26 @@
         gridRows: DEFAULT_GRID_ROWS,
         theme: "light",
         themes: DEFAULT_THEMES,
+        headHtml: "",
       };
     }
 
+    function applyHeadHtml(nextHeadHtml) {
+      document.querySelectorAll("[data-windex-head]").forEach((node) => node.remove());
+      headHtml = typeof nextHeadHtml === "string" ? nextHeadHtml.trim() : "";
+      if (!headHtml) return;
+      const template = document.createElement("template");
+      template.innerHTML = headHtml;
+      Array.from(template.content.childNodes).forEach((node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const el = node;
+        el.setAttribute("data-windex-head", "1");
+        document.head.appendChild(el);
+      });
+    }
+
     function saveMeta() {
+      document.title = pageTitle.textContent;
       localStorage.setItem(
         META_KEY,
         JSON.stringify({
@@ -675,6 +699,7 @@
           gridRows,
           theme: body.dataset.theme || "light",
           themes: themeMap,
+          headHtml,
         })
       );
     }
@@ -718,6 +743,7 @@
           gridRows,
           theme: body.dataset.theme || "light",
           themes: themeMap,
+          headHtml,
         },
         widgets: getWidgetsFromDom(),
       };
@@ -928,12 +954,14 @@
       metaOverlay.classList.add("active");
       metaTitleInput.value = pageTitle.textContent;
       metaSubtitleInput.value = pageSubtitle.textContent;
+      metaHeadInput.value = headHtml;
     }
 
     function closeMetaEditor() {
       metaOverlay.classList.remove("active");
       metaTitleInput.value = "";
       metaSubtitleInput.value = "";
+      metaHeadInput.value = "";
     }
 
     function openClearConfirm() {
@@ -1053,6 +1081,7 @@
       pageSubtitle.textContent =
         metaSubtitleInput.value.trim() ||
         "Drag widgets by the header, resize from the corner, snap to the grid.";
+      applyHeadHtml(metaHeadInput.value);
       saveMeta();
       closeMetaEditor();
     });
@@ -1098,6 +1127,9 @@
         if (incomingMeta) {
           pageTitle.textContent = incomingMeta.title || pageTitle.textContent;
           pageSubtitle.textContent = incomingMeta.subtitle || pageSubtitle.textContent;
+          if (typeof incomingMeta.headHtml === "string") {
+            applyHeadHtml(incomingMeta.headHtml);
+          }
           if (Number.isFinite(incomingMeta.gridCols) && Number.isFinite(incomingMeta.gridRows)) {
             setGridSize(incomingMeta.gridCols, incomingMeta.gridRows);
           }
@@ -1143,6 +1175,8 @@
       const meta = loadMeta();
       pageTitle.textContent = meta.title;
       pageSubtitle.textContent = meta.subtitle;
+      document.title = meta.title;
+      applyHeadHtml(meta.headHtml);
       themeMap = buildThemeMap(meta.themes);
       applyTheme(meta.theme, themeMap);
 
