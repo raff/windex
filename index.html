@@ -825,11 +825,16 @@
 
     function getWidgetsFromDom() {
       return Array.from(document.querySelectorAll(".widget")).map((widget) => {
+        const body = widget.querySelector(".widget-body");
+        const raw = serializePersistedBody(body);
+        if (raw) {
+          body.dataset.raw = raw;
+        }
         return {
           id: widget.dataset.id,
           title: widget.querySelector(".widget-title").textContent,
-          html: widget.querySelector(".widget-body").dataset.raw || "",
-          script: widget.querySelector(".widget-body").dataset.script || "",
+          html: body.dataset.raw || "",
+          script: body.dataset.script || "",
           version: Number(widget.dataset.version) || 1,
           col: Number(widget.style.getPropertyValue("--col")),
           row: Number(widget.style.getPropertyValue("--row")),
@@ -894,6 +899,55 @@
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
+    }
+
+    function serializePersistedBody(body) {
+      if (!body) return "";
+      const raw = body.dataset.raw || "";
+      if (!raw) return "";
+      const template = document.createElement("template");
+      template.innerHTML = raw;
+      const rawNodes = template.content.querySelectorAll(".windex-persist");
+      const liveNodes = body.querySelectorAll(".windex-persist");
+      const count = Math.min(rawNodes.length, liveNodes.length);
+      for (let i = 0; i < count; i += 1) {
+        const rawEl = rawNodes[i];
+        const liveEl = liveNodes[i];
+        if (rawEl.tagName === "TEXTAREA") {
+          rawEl.textContent = liveEl.value;
+          continue;
+        }
+        if (rawEl.tagName === "INPUT") {
+          const type = (rawEl.getAttribute("type") || "").toLowerCase();
+          if (type === "checkbox" || type === "radio") {
+            if (liveEl.checked) {
+              rawEl.setAttribute("checked", "");
+            } else {
+              rawEl.removeAttribute("checked");
+            }
+          } else {
+            rawEl.setAttribute("value", liveEl.value);
+          }
+          continue;
+        }
+        if (rawEl.tagName === "SELECT") {
+          const rawOptions = Array.from(rawEl.options || []);
+          const liveOptions = Array.from(liveEl.options || []);
+          const optionCount = Math.min(rawOptions.length, liveOptions.length);
+          for (let j = 0; j < optionCount; j += 1) {
+            if (liveOptions[j].selected) {
+              rawOptions[j].setAttribute("selected", "");
+            } else {
+              rawOptions[j].removeAttribute("selected");
+            }
+          }
+          continue;
+        }
+        if (liveEl.isContentEditable) {
+          rawEl.innerHTML = liveEl.innerHTML;
+        }
+      }
+      return template.innerHTML;
     }
 
     function snapToGrid(pxX, pxY) {
@@ -1049,8 +1103,13 @@
       overlay.classList.add("active");
       panelHeading.textContent = "Edit widget";
       widgetTitle.value = widget.querySelector(".widget-title").textContent;
-      widgetHtml.value = widget.querySelector(".widget-body").dataset.raw || "";
-      widgetScript.value = widget.querySelector(".widget-body").dataset.script || "";
+      const body = widget.querySelector(".widget-body");
+      const raw = serializePersistedBody(body);
+      if (raw) {
+        body.dataset.raw = raw;
+      }
+      widgetHtml.value = body.dataset.raw || "";
+      widgetScript.value = body.dataset.script || "";
       overlay.dataset.editing = widget.dataset.id;
     }
 
